@@ -14,7 +14,7 @@ from setuptools import setup
 setup(
     name='Flask-Waf',
     version='1.0',
-    url='https://github.com/virink/webwaf/flask',
+    url='https://github.com/virink/flask_waf',
     license='BSD',
     author='Virink',
     author_email='virink@outlook.com',
