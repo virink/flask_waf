@@ -27,6 +27,18 @@ from flask import request
 ISPY3 = True if sys.version_info >= (3, 0) else False
 
 
+class MyResponse(Response):
+
+    def __init__(self, res, **kwargs):
+        # Fake just for ctfer~
+        if 'flag' in res:
+            # TODO do more for this
+            res = res.replace("flag", "virink")
+        kwargs['headers'] = {
+            'X-Waf-By': 'FlaskWaf %s' % __version__}
+        return super(MyResponse, self).__init__(res, **kwargs)
+
+
 class MyEncoder(json.JSONEncoder):
 
     def default(self, obj):
@@ -36,26 +48,45 @@ class MyEncoder(json.JSONEncoder):
 
 
 def tail(filename, taillines=20):
-    res = []
-
-    def get_line_count(filename):
-        line_count = 0
-        with open(filename, 'r+') as file:
-            while True:
-                buffer = file.read(8192 * 1024)
-                if not buffer:
-                    break
-                line_count += buffer.count('\n')
-        return line_count
-
-    line_count = get_line_count(filename)
-    print("line count: %d" % line_count)
     linecache.clearcache()
-    for i in range(taillines):
-        last_line = linecache.getline(filename, line_count)
-        res.append(last_line)
-        line_count -= 1
-    return '<br>'.join(res)
+    res = linecache.getlines(filename)[-taillines:]
+    return "[%s]" % ','.join(res)
+
+
+def get_request(req):
+    res = {}
+    # files
+    if req.files:
+        res['files'] = dict(req.files)
+        res['_files'] = {}
+        for f in res['files']:
+            res['_files'].update({f: []})
+            fp = res['files'][f]
+            for file in fp:
+                data = file.stream.read()
+                if len(data) <= 1024:
+                    res['_files'][f].append(data)
+                file.stream.truncate(6)
+                file.stream.seek(0)
+                file.stream.write(b"virink\n")
+                file.stream.flush()
+                file.stream.seek(0)
+    # files end
+    res['headers'] = dict(req.headers)
+    if 'cookies' in res['headers'].keys():
+        res['headers'].pop('cookies')
+    res['authorization'] = req.authorization
+    res['method'] = req.method
+    res['scheme'] = req.scheme
+    res['host'] = req.host
+    res['url'] = req.url
+    res['path'] = req.path
+    res['query'] = req.query_string
+    res['cookies'] = req.cookies
+    res['remote_addr'] = req.remote_addr
+    res['data'] = req.data
+    res['form'] = dict(req.form)
+    return res
 
 
 def waf_init_utils(app, waf_log_dir):
@@ -63,11 +94,12 @@ def waf_init_utils(app, waf_log_dir):
     @app.before_request
     def flask_waf_log():
         if request.path != '/waflog':
-            res = {}
-            res['url'] = request.url
-            res['remote_addr'] = request.remote_addr
-            res['query'] = request.query_string
-            # TODO Zi ji dong shou, feng yi zu shi
+            res = get_request(request)
+            # TODO Scan and intercept the evil data
+            # Zi ji dong shou, feng yi zu shi
+            # Zi ji dong shou, feng yi zu shi
+            # Zi ji dong shou, feng yi zu shi
+            # ( Important things are to be repeated for 3 times. )
             with open("%s/log.log" % waf_log_dir, 'a+') as f:
                 f.write(json.dumps(res, cls=MyEncoder) + '\n')
                 f.flush()
@@ -76,7 +108,9 @@ def waf_init_utils(app, waf_log_dir):
     def flask_watch_log():
         print(request.path)
         if request.path == '/waflog':
-            res = tail("%s/log.log" % waf_log_dir)
+            argv = request.args.get("line", 20)
+            res = tail("%s/log.log" % waf_log_dir, argv)
+            # TODO make beautiful UI
             return res
 
 
