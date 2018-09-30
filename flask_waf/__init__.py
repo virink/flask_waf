@@ -7,6 +7,13 @@
 
     :copyright: (c) 2018 by Virink
     :license: BSD, see LICENSE for more details.
+
+    Usage:
+
+        from flask_waf import Waf
+
+        app = Flask(__name__)
+        Waf(app)
 """
 
 __version__ = '1.0.0'
